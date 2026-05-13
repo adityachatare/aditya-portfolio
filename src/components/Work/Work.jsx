@@ -1,8 +1,63 @@
-import React, { useState } from "react";
-import { projects } from "../../constants";
+import React, { useState, useEffect } from "react";
+import { projects as staticProjects } from "../../constants";
+import { db } from "../../firebase";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 
 const Work = () => {
   const [selectedProject, setSelectedProject] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const projectsQuery = query(
+          collection(db, "projects"),
+          orderBy("createdAt", "desc")
+        );
+        const querySnapshot = await getDocs(projectsQuery);
+        const fetchedProjects = querySnapshot.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            title: data.title || "Untitled Project",
+            description: data.description || "No description available.",
+            image:
+              data["header_image"] || data.header_image ||
+              data.image ||
+              "",
+            tags: Array.isArray(data.technologies)
+              ? data.technologies
+              : [],
+            github:
+              data["repo link"] || data.repo_link || data.github || "#",
+            webapp:
+              data["live link"] || data.live_link || data.link ||
+              data["webapp"] ||
+              "#",
+          };
+        });
+
+        if (fetchedProjects.length === 0) {
+          setError("No projects found in Firestore. Showing default projects.");
+          setProjects(staticProjects);
+        } else {
+          setProjects(fetchedProjects);
+        }
+      } catch (fetchError) {
+        console.error(fetchError);
+        setError(
+          "Unable to load Firestore projects. Displaying local fallback projects."
+        );
+        setProjects(staticProjects);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, []);
 
   const handleOpenModal = (project) => {
     setSelectedProject(project);
@@ -26,6 +81,16 @@ const Work = () => {
           and experience in various technologies
         </p>
       </div>
+
+      {isLoading && (
+        <div className="text-center mb-6 text-sm text-gray-300">
+          Loading projects from Firebase...
+        </div>
+      )}
+
+      {error && (
+        <div className="text-center mb-6 text-sm text-red-400">{error}</div>
+      )}
 
       {/* Projects Grid */}
       <div className="grid gap-12 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">

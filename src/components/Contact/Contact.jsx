@@ -1,49 +1,66 @@
-import React, { useRef, useState } from "react";
-import emailjs from "@emailjs/browser";
+import React, { useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { db } from "../../firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 const Contact = () => {
-  const form = useRef();
+  const [formData, setFormData] = useState({
+    user_email: "",
+    user_name: "",
+    subject: "",
+    message: "",
+  });
   const [isSent, setIsSent] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const sendEmail = (e) => {
+  const sendEmail = async (e) => {
     e.preventDefault();
+    setIsSaving(true);
 
-    emailjs
-      .sendForm(
-        "service_axbtt7a",  // Replace with your EmailJS Service ID
-        "template_1ziboq3",  // Replace with your EmailJS Template ID
-        form.current,
-        "Rz7W9pVF0HdDryNNL"  // Replace with your EmailJS Public Key
-      )
-      .then(
-        () => {
-          setIsSent(true);
-          form.current.reset(); // Reset form fields after sending
-          toast.success("Message sent successfully! ✅", {
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            theme: "dark",
-          });
-        },
-        (error) => {
-          console.error("Error sending message:", error);
-          toast.error("Failed to send message. Please try again.", {
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            theme: "dark",
-          });
-        }
-      );
+    try {
+      await addDoc(collection(db, "contacts"), {
+        email: formData.user_email,
+        name: formData.user_name,
+        subject: formData.subject,
+        message: formData.message,
+        createdAt: serverTimestamp(),
+      });
+
+      setIsSent(true);
+      setFormData({
+        user_email: "",
+        user_name: "",
+        subject: "",
+        message: "",
+      });
+      toast.success("Message saved successfully to Firebase! ✅", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "dark",
+      });
+    } catch (error) {
+      console.error("Error saving contact message:", error);
+      toast.error("Failed to save message. Please try again.", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        theme: "dark",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   return (
@@ -69,10 +86,12 @@ const Contact = () => {
           Connect With Me <span className="ml-1">🚀</span>
         </h3>
 
-        <form ref={form} onSubmit={sendEmail} className="mt-4 flex flex-col space-y-4">
+        <form onSubmit={sendEmail} className="mt-4 flex flex-col space-y-4">
           <input
             type="email"
             name="user_email"
+            value={formData.user_email}
+            onChange={handleChange}
             placeholder="Your Email"
             required
             className="w-full p-3 rounded-md bg-[#131025] text-white border border-gray-600 focus:outline-none focus:border-purple-500"
@@ -80,6 +99,8 @@ const Contact = () => {
           <input
             type="text"
             name="user_name"
+            value={formData.user_name}
+            onChange={handleChange}
             placeholder="Your Name"
             required
             className="w-full p-3 rounded-md bg-[#131025] text-white border border-gray-600 focus:outline-none focus:border-purple-500"
@@ -87,12 +108,16 @@ const Contact = () => {
           <input
             type="text"
             name="subject"
+            value={formData.subject}
+            onChange={handleChange}
             placeholder="Subject"
             required
             className="w-full p-3 rounded-md bg-[#131025] text-white border border-gray-600 focus:outline-none focus:border-purple-500"
           />
           <textarea
             name="message"
+            value={formData.message}
+            onChange={handleChange}
             placeholder="Message"
             rows="4"
             required
@@ -102,10 +127,17 @@ const Contact = () => {
           {/* Send Button */}
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-500 py-3 text-white font-semibold rounded-md hover:opacity-90 transition"
+            disabled={isSaving}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-500 py-3 text-white font-semibold rounded-md hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Send
+            {isSaving ? "Sending..." : "Send"}
           </button>
+
+          {isSent && (
+            <p className="text-center text-sm text-green-400 mt-2">
+              Thanks! Your message has been saved and will be reviewed shortly.
+            </p>
+          )}
         </form>
       </div>
     </section>
